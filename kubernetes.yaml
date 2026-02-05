@@ -1,0 +1,118 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: monitoring
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: arris-exporter-secret
+  namespace: monitoring
+type: Opaque
+stringData:
+  MODEM_PASSWORD: "changeme"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: arris-exporter
+  namespace: monitoring
+  labels:
+    app: arris-exporter
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: arris-exporter
+  template:
+    metadata:
+      labels:
+        app: arris-exporter
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9393"
+        prometheus.io/path: "/metrics"
+    spec:
+      containers:
+        - name: arris-exporter
+          image: ghcr.io/shakataganai/arris-exporter:latest
+          ports:
+            - containerPort: 9393
+              name: metrics
+          env:
+            - name: MODEM_URL
+              value: "https://192.168.100.1"
+            - name: MODEM_USERNAME
+              value: "admin"
+            - name: MODEM_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: arris-exporter-secret
+                  key: MODEM_PASSWORD
+            - name: EXPORTER_PORT
+              value: "9393"
+            - name: SCRAPE_INTERVAL
+              value: "0"
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "128Mi"
+              cpu: "100m"
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: metrics
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 10
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+      securityContext:
+        fsGroup: 1000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: arris-exporter
+  namespace: monitoring
+  labels:
+    app: arris-exporter
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9393
+      targetPort: metrics
+      protocol: TCP
+      name: metrics
+  selector:
+    app: arris-exporter
+---
+# ServiceMonitor for Prometheus Operator (optional)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: arris-exporter
+  namespace: monitoring
+  labels:
+    app: arris-exporter
+spec:
+  selector:
+    matchLabels:
+      app: arris-exporter
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
