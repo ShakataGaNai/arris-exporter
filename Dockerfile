@@ -1,5 +1,5 @@
 # Use a Python image with uv pre-installed
-FROM ghcr.io/astral-sh/uv:python3.13-bookworm-slim
+FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
 # Setup a non-root user
 RUN useradd --create-home --shell /bin/bash appuser
