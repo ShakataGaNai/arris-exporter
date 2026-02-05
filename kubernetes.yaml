@@ -54,6 +54,8 @@ spec:
               value: "9393"
             - name: SCRAPE_INTERVAL
               value: "0"
+            - name: UV_NO_CACHE
+              value: "1"
           resources:
             requests:
               memory: "64Mi"

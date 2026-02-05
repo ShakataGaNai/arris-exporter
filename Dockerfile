@@ -1,9 +1,6 @@
 # Use a Python image with uv pre-installed
 FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
-# Setup a non-root user
-RUN adduser -D appuser
-
 # Install the project into `/app`
 WORKDIR /app
 
@@ -16,17 +13,16 @@ ENV UV_LINK_MODE=copy
 # Omit development dependencies
 ENV UV_NO_DEV=1
 
-# Install the project's dependencies using the lockfile and settings
-RUN --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=uv.lock,target=uv.lock \
-    --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-    uv sync --locked --no-install-project
+# Install dependencies first for layer caching
+COPY pyproject.toml uv.lock ./
+RUN uv sync --locked --no-install-project
 
 # Then, add the rest of the project source code and install it
-# Installing separately from its dependencies allows optimal layer caching
-COPY . /app
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked
+COPY arris_exporter.py .
+RUN uv sync --locked
+
+# Setup a non-root user
+RUN adduser -D appuser
 
 # Place executables in the environment at the front of the path
 ENV PATH="/app/.venv/bin:$PATH"
@@ -39,6 +35,7 @@ USER appuser
 
 EXPOSE 9393
 
+ENV UV_NO_CACHE=1
 ENV MODEM_URL=https://192.168.100.1
 ENV MODEM_USERNAME=admin
 ENV EXPORTER_PORT=9393
