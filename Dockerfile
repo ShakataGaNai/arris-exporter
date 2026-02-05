@@ -2,7 +2,7 @@
 FROM ghcr.io/astral-sh/uv:python3.13-alpine
 
 # Setup a non-root user
-RUN useradd --create-home --shell /bin/bash appuser
+RUN adduser -D appuser
 
 # Install the project into `/app`
 WORKDIR /app
