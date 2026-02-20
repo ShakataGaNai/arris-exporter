@@ -35,10 +35,9 @@ USER appuser
 
 EXPOSE 9393
 
-ENV UV_NO_CACHE=1
 ENV MODEM_URL=https://192.168.100.1
 ENV MODEM_USERNAME=admin
 ENV EXPORTER_PORT=9393
 ENV SCRAPE_INTERVAL=0
 
-CMD ["uv", "run", "arris_exporter.py"]
+CMD ["python", "arris_exporter.py"]
