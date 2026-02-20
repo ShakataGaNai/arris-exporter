@@ -217,12 +217,14 @@ class ArrisCollector:
         return []
 
     def collect(self):
-        # Modem info
-        device = self.client.fetch("GetArrisDeviceStatus", "GetArrisRegisterInfo")
+        # Modem info + uptime (combined to use GetMultipleHNAPs)
+        device = self.client.fetch("GetArrisDeviceStatus", "GetArrisRegisterInfo", "GetCustomerStatusConnectionInfo", "GetCustomerStatusStartupSequence")
         if device:
             resp = device.get("GetMultipleHNAPsResponse", {})
             dev_status = resp.get("GetArrisDeviceStatusResponse", {})
             reg_info = resp.get("GetArrisRegisterInfoResponse", {})
+            conn_info = resp.get("GetCustomerStatusConnectionInfoResponse", {})
+            startup = resp.get("GetCustomerStatusStartupSequenceResponse", {})
 
             info = InfoMetricFamily("arris_modem", "Modem information")
             info.add_metric([], {
@@ -230,16 +232,15 @@ class ArrisCollector:
                 "model": reg_info.get("ModelName", ""),
                 "mac_address": reg_info.get("MacAddress", ""),
                 "serial_number": reg_info.get("SerialNumber", ""),
+                "network_access": conn_info.get("CustomerConnNetworkAccess", ""),
+                "connectivity_status": startup.get("CustomerConnConnectivityStatus", ""),
+                "boot_status": startup.get("CustomerConnBootStatus", ""),
+                "configuration_file_status": startup.get("CustomerConnConfigurationFileStatus", ""),
+                "security_status": startup.get("CustomerConnSecurityStatus", ""),
             })
             yield info
 
-        # Uptime
-        status = self.client.fetch("GetCustomerStatusConnectionInfo")
-        if status:
-            resp = status.get("GetMultipleHNAPsResponse", {})
-            conn_info = resp.get("GetCustomerStatusConnectionInfoResponse", {})
             uptime_str = conn_info.get("CustomerConnSystemUpTime", "")
-
             uptime = GaugeMetricFamily("arris_modem_uptime_seconds", "Modem uptime in seconds")
             uptime.add_metric([], parse_uptime(uptime_str))
             yield uptime
@@ -312,22 +313,24 @@ def init_interval_metrics():
 
 def collect_metrics_interval(client: ArrisS33Client):
     """Collect metrics for interval-based mode."""
-    device = client.fetch("GetArrisDeviceStatus", "GetArrisRegisterInfo")
+    device = client.fetch("GetArrisDeviceStatus", "GetArrisRegisterInfo", "GetCustomerStatusConnectionInfo", "GetCustomerStatusStartupSequence")
     if device:
         resp = device.get("GetMultipleHNAPsResponse", {})
         dev_status = resp.get("GetArrisDeviceStatusResponse", {})
         reg_info = resp.get("GetArrisRegisterInfoResponse", {})
+        conn_info = resp.get("GetCustomerStatusConnectionInfoResponse", {})
+        startup = resp.get("GetCustomerStatusStartupSequenceResponse", {})
         MODEM_INFO.info({
             "firmware": dev_status.get("FirmwareVersion", ""),
             "model": reg_info.get("ModelName", ""),
             "mac_address": reg_info.get("MacAddress", ""),
             "serial_number": reg_info.get("SerialNumber", ""),
+            "network_access": conn_info.get("CustomerConnNetworkAccess", ""),
+            "connectivity_status": startup.get("CustomerConnConnectivityStatus", ""),
+            "boot_status": startup.get("CustomerConnBootStatus", ""),
+            "configuration_file_status": startup.get("CustomerConnConfigurationFileStatus", ""),
+            "security_status": startup.get("CustomerConnSecurityStatus", ""),
         })
-
-    status = client.fetch("GetCustomerStatusConnectionInfo")
-    if status:
-        resp = status.get("GetMultipleHNAPsResponse", {})
-        conn_info = resp.get("GetCustomerStatusConnectionInfoResponse", {})
         uptime_str = conn_info.get("CustomerConnSystemUpTime", "")
         MODEM_UPTIME.set(parse_uptime(uptime_str))
 
